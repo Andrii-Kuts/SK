@@ -1,51 +1,65 @@
 #!/usr/bin/env python3
 # andrii kuts
+# simple hardcoded sequencer, uses multivoice subtractive synthethis to produce sound
+# generates wav file with provided file name
 
 import pyaudio
 import wave
 import sys
 import numpy as np
 
+# file options
 DURATION = 0.17
 FRAMERATE = 44100
 LENGTH = 28
 
+# volume options 
 VOLUME = 0.3
 PRE_GAIN = 1.2
 
+# tuning options
 A_FREQ = 440
 TRANSPOSE = -6
 
+# synth options
 ATACK = 0.05
 SUSTAIN = 1-ATACK
 UNISON_NUM = 7
 UNISON_DET = 40
 UNISON_PAN = 0.8
 
+# saturation gain
 SOFT_GAIN = 1.2
 
+# arpeggio sequence
 notes = [0, 4, 2, 1, 3, 2, 1, 2, 0, 2, 1, 3, 2, 4, 2, 3]
+# chords
 chords = [[3, 7, 10, 15, 17], [3, 7, 10, 14, 15], [-4, 3, 8, 12, 17], [-4, 3, 7, 12, 14]]
 
 if len(sys.argv) < 2:
     print("\nplease type in a file name to write\n")
     sys.exit(-1)
 
-
+# get pitch of a note n semitones above A4 (440 Hz)
 def get_note_from_A4(n):
 	n += TRANSPOSE
 	ptch = A_FREQ * (2.0 ** (n/12.0))
 	return ptch
 
+# note names for output
 note_names = ["A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab"]
 
+# note name by note
 def get_note_name(n):
 	n += TRANSPOSE
 	n %= 12
 	return note_names[n]
 
+# detuning in cents to detuning in ratio
 def cents_to_ratio(cnt):
 	return (2.0 ** (cnt/1200.0))
+
+# wave functions: return amplitude based on cycle phase
 
 def square(t):
 	t = t-int(t)
@@ -65,6 +79,7 @@ def triang(t):
 def sinus(t):
 	return np.sin(t*2*np.pi)
 
+# soft clip saturation
 def soft_clip(t, gn):
 	t *= gn
 	if t <= -1:
@@ -74,6 +89,7 @@ def soft_clip(t, gn):
 	else:
 		return t-(t**3)/3
 
+# get amplitude at sample -t- with pitch -ptch- and -wav- wave type
 def play_tone(t, ptch, wav):
 	val = float(t)*float(ptch)/float(FRAMERATE)
 	if wav == 0:
@@ -85,6 +101,7 @@ def play_tone(t, ptch, wav):
 	else:
 		return saw(val)
 
+# same as play tone but with stereo panning
 def play_voice(t, ptch, wav, vol, pan):
 	amp = play_tone(t, ptch, wav)
 	ans = [0.0, 0.0]
@@ -98,6 +115,7 @@ def play_voice(t, ptch, wav, vol, pan):
 
 leng = int(FRAMERATE*DURATION)
 
+# get amplitude of full note at sample -t- with pitch -ptch-
 def play_note(t, ptch):
 	global leng
 	ans = [0.0, 0.0]
@@ -121,6 +139,7 @@ def play_note(t, ptch):
 	ans[1] *= VOLUME
 	return ans
 
+# envelope function to controll dynamics
 def envelope(t):
 	if t < ATACK:
 		return t/ATACK
@@ -129,6 +148,7 @@ def envelope(t):
 	else:
 		return 1.0-(t-ATACK)/SUSTAIN
 
+# unused distortion
 def distortion(t, amp):
 	t = (1-t*amp)
 	return 1-(t*t)
@@ -140,6 +160,7 @@ FREQ = get_note_from_A4(notes[0])
 
 frames = []
 
+# generate sound for -size- next frames
 def generate_next_chunk(size):
     global chord_num
     global idx
